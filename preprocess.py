@@ -78,4 +78,14 @@ def preprocess_data(data_path):
     # Identify Named Entities
     # Doesn't really work
     # named_entities = get_named_entities(sentence_dict)
+
+    # Lowercase everything, except named entities
+    named_entities = []
     
+    # Lowercase and store in variable
+    for file, sentences in sentence_dict.items():
+        for sent_id, sent in sentences.items():
+            sentence = [(word.lower(), label) if label not in named_entities else (word, label) for word, label in sent]
+            sentence_dict[file][sent_id] = sentence
+
+    print(sentence_dict.items())
