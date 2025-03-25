@@ -13,7 +13,7 @@ Example training commands:
 
 Example prediction commands:
   python classify.py --mode predict --data processed_data --output models \
-      --test-file lid_spaeng/test.conll --prediction-output my_predictions.conll
+      --test-file lid_spaeng/test.conll --prediction-output predictions.conll
 """
 
 import os
