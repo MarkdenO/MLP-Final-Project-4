@@ -6,3 +6,18 @@ In order to run the project, first make sure the required packages are installed
 ```
 bash requirements.sh
 ```
+
+Then create the csv including the features for training:
+```
+python3 preprocess.py --data lid_spaeng --output processed_data
+```
+
+Then train the model:
+```
+python3 classify.py --mode train --data processed_data --output models --class-weights
+```
+
+And generate a labeled test set using:
+```
+python classify.py --mode predict --data processed_data --output models --test-file lid_spaeng/test.conll --prediction-output predictions.conll
+```

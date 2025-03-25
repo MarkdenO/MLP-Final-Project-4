@@ -18,6 +18,12 @@ import numpy as np
 from tqdm import tqdm
 from collections import defaultdict, Counter
 
+# parse_conll_file reads a .conll file with format:
+# # sent_enum = X
+# token  label
+# ...
+# and returns a dict of sentence_id -> list of (word, label)
+
 
 def parse_conll_file(file_path: str) -> dict:
     sentences = defaultdict(list)
@@ -31,6 +37,7 @@ def parse_conll_file(file_path: str) -> dict:
             if not line:
                 continue
             if line.startswith("# sent_enum ="):
+                # each new sentence id
                 current_sent = int(line.split("=")[1].strip())
             else:
                 parts = re.split(r'\s+', line, maxsplit=1)
@@ -43,6 +50,8 @@ def parse_conll_file(file_path: str) -> dict:
     print(
         f"Finished parsing: {total_tokens} tokens in {len(sentences)} sentences.")
     return dict(sentences)
+
+# load word lists for English and Spanish, if available
 
 
 def load_dictionaries(
@@ -57,6 +66,8 @@ def load_dictionaries(
         return english_words, spanish_words
     print("Dictionary files not found. Returning empty sets.")
     return set(), set()
+
+# detect if a string has any emoji characters
 
 
 def detect_emoji(text: str) -> bool:
@@ -78,18 +89,26 @@ def detect_emoji(text: str) -> bool:
     )
     return bool(emoji_pattern.search(text))
 
+# check if text is all punctuation (like "...")
+
 
 def is_punctuation(text: str) -> bool:
     return all(c in string.punctuation for c in text)
+
+# checks if text is numeric
 
 
 def is_numeric(text: str) -> bool:
     return bool(re.match(r'^[\d\.:]+$', text))
 
+# checks for Spanish diacritics etc.
+
 
 def has_spanish_characters(text: str) -> bool:
     spanish_chars = set('áéíóúüñ¿¡')
     return any(char in spanish_chars for char in text.lower())
+
+# collects frequent n-grams up to length 3 in entire dataset
 
 
 def collect_common_ngrams(sentences: dict, max_ngrams=500) -> dict:
@@ -109,6 +128,8 @@ def collect_common_ngrams(sentences: dict, max_ngrams=500) -> dict:
             common_ngrams_map[ng] = 1
     print(f"Selected {len(common_ngrams_map)} total unique n-grams.")
     return common_ngrams_map
+
+# This function extracts features for a single token
 
 
 def extract_features(
@@ -160,6 +181,8 @@ def extract_features(
                     vec[idx_ngram] = 1
     return vec
 
+# This is the main function for building the CSV from the train.conll data
+
 
 def preprocess_data(
     data_path: str,
@@ -200,6 +223,8 @@ def preprocess_data(
     output_csv = os.path.join(output_path, 'features.csv')
     with open(output_csv, 'w', encoding='utf-8') as f:
         f.write("sentence_id,word,label,features\n")
+
+    # batch processing to handle large data
     for batch_idx in range(total_batches):
         start_idx = batch_idx * batch_size
         end_idx = min(start_idx + batch_size, total_tokens)
@@ -208,17 +233,20 @@ def preprocess_data(
         batch_tokens = all_tokens[start_idx:end_idx]
         batch_data = []
         for sent_id, word, label in tqdm(batch_tokens, desc=f"Batch {batch_idx+1}"):
+            # extract features for each token using the same logic
             feature_vector = extract_features(
                 word, english_words, spanish_words, common_ngrams, feature_index)
             feature_str = ",".join(str(v) for v in feature_vector)
             label_safe = f'"{label}"' if ',' in label else label
             word_safe = f'"{word}"' if ',' in word else word
             batch_data.append((sent_id, word_safe, label_safe, feature_str))
+
         with open(output_csv, 'a', encoding='utf-8') as f:
             for row in batch_data:
                 f.write(f"{row[0]},{row[1]},{row[2]},{row[3]}\n")
         del batch_data
         gc.collect()
+
     print(f"\nPreprocessing complete! {total_tokens} tokens processed.")
     print(f"Output CSV: {output_csv}")
     print(f"Feature names: {feature_names_path}")

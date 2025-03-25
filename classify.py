@@ -32,6 +32,8 @@ from sklearn.metrics import classification_report, accuracy_score, f1_score
 from sklearn.utils.class_weight import compute_class_weight
 from preprocess import extract_features, load_dictionaries
 
+# This function loads the CSV features and the feature definition .pkl file
+
 
 def load_preprocessed_data(
     data_path: str = 'processed_data',
@@ -41,6 +43,7 @@ def load_preprocessed_data(
     features_path = os.path.join(data_path, 'features.csv')
     feature_names_path = os.path.join(data_path, 'feature_names.pkl')
 
+    # checks if files exist
     if not os.path.exists(features_path) or not os.path.exists(feature_names_path):
         print(f"Preprocessed data not found at {data_path}.")
         return None, None, None, None
@@ -80,6 +83,7 @@ def load_preprocessed_data(
     error_count = 0
     error_lines = []
 
+    # reading lines from CSV
     with open(features_path, 'r', encoding='utf-8') as f:
         header = f.readline()
         for i, line in enumerate(tqdm(f, total=total_lines-1, unit="rows")):
@@ -106,6 +110,8 @@ def load_preprocessed_data(
                                 f"Line {i+2}: fewer than 4 parts")
                         continue
                     sent_id, word, label, rest = parts
+
+                # convert features to ints
                 feature_values = []
                 for val in rest.split(','):
                     val = val.strip()
@@ -113,6 +119,7 @@ def load_preprocessed_data(
                         continue
                     if (val.isdigit()) or (val.startswith('-') and val[1:].isdigit()):
                         feature_values.append(int(val))
+
                 label_counts[label] = label_counts.get(label, 0) + 1
                 X_data.append(feature_values)
                 y_data.append(label)
@@ -130,6 +137,8 @@ def load_preprocessed_data(
         print(f"\nEncountered {error_count} parse errors. Examples:")
         for e in error_lines:
             print(f"  - {e}")
+
+    # find the most common length of features and filter the rest
     length_counts = {}
     for v in X_data:
         length_counts[len(v)] = length_counts.get(len(v), 0) + 1
@@ -138,9 +147,12 @@ def load_preprocessed_data(
         X_data) if len(vec) == most_common_length]
     X_data = [X_data[i] for i in valid_indices]
     y_data = [y_data[i] for i in valid_indices]
+
     X = np.array(X_data)
     y = np.array(y_data)
     print(f"Kept {len(X)} samples after standardization.\n")
+
+    # final split into train and val
     X_train, X_val, y_train, y_val = train_test_split(
         X, y, test_size=test_size, random_state=42, stratify=y
     )
@@ -149,6 +161,8 @@ def load_preprocessed_data(
     print(f"Feature dimension: {X_train.shape[1]}")
     return X_train, X_val, y_train, y_val
 
+# function to train models
+
 
 def train_models(X_train: np.ndarray, y_train: np.ndarray, use_class_weights: bool = False):
     unique_classes, class_counts = np.unique(y_train, return_counts=True)
@@ -156,6 +170,7 @@ def train_models(X_train: np.ndarray, y_train: np.ndarray, use_class_weights: bo
     print(f"  - {len(y_train)} samples total")
     print(f"  - {len(unique_classes)} unique classes")
 
+    # we do class weights if needed
     if use_class_weights:
         cw = compute_class_weight(
             class_weight='balanced',
@@ -169,6 +184,7 @@ def train_models(X_train: np.ndarray, y_train: np.ndarray, use_class_weights: bo
     else:
         class_weight_dict = None
 
+    # we define 2 models
     svm = SGDClassifier(
         loss='hinge',
         max_iter=5000,
@@ -183,6 +199,8 @@ def train_models(X_train: np.ndarray, y_train: np.ndarray, use_class_weights: bo
         "LinearSVM": svm,
         "NaiveBayes": nb
     }
+
+    # training them
     for name, model in models.items():
         print(f"\nTraining {name}...")
         start_t = time.time()
@@ -193,6 +211,8 @@ def train_models(X_train: np.ndarray, y_train: np.ndarray, use_class_weights: bo
             print(f"  - Classes: {model.classes_}")
 
     return models
+
+# evaluate each model on validation
 
 
 def evaluate_models(models: dict, X_val: np.ndarray, y_val: np.ndarray):
@@ -213,11 +233,14 @@ def evaluate_models(models: dict, X_val: np.ndarray, y_val: np.ndarray):
         print(f"  - Macro F1: {m_f1:.4f}")
         print("  - Detailed classification report:")
         print(classification_report(y_val, preds, zero_division=0))
+
     best_model_name = max(
         results.items(), key=lambda x: x[1]['weighted_f1'])[0]
     print(
         f"\nBest model: {best_model_name} (weighted F1={results[best_model_name]['weighted_f1']:.4f})")
     return results, best_model_name
+
+# save the models
 
 
 def save_models(models: dict,  best_model: str,  output_path: str = 'models'):
@@ -231,15 +254,17 @@ def save_models(models: dict,  best_model: str,  output_path: str = 'models'):
         print(f"  - Saving {name} => {file_path}")
         joblib.dump(model, file_path)
 
+    # we only store best model as BestModel.joblib
     if best_model in models:
         best_model_obj = models[best_model]
-
     else:
         print(f"Warning: best_model '{best_model}' not recognized; skipping.")
         return
     best_path = os.path.join(output_path, f"BestModel.joblib")
     print(f"  - Saving Best Model => {best_path}")
     joblib.dump(best_model_obj, best_path)
+
+# parse an unlabeled conll file
 
 
 def parse_unlabeled_conll(file_path: str) -> dict:
@@ -289,6 +314,7 @@ def predict_conll_file(
                 f_out.write(line)
                 current_sent = int(line_stripped.split('=')[1].strip())
                 continue
+            # we extract features for each line
             feats = extract_features(
                 line_stripped,
                 english_words,
@@ -324,9 +350,12 @@ def main():
         if X_train is None:
             print("No data loaded.")
             sys.exit(1)
+        # train the models
         models = train_models(
             X_train, y_train, use_class_weights=args.class_weights)
+        # evaluate them
         results, best_model = evaluate_models(models, X_val, y_val)
+        # save them
         save_models(models, best_model,
                     output_path=args.output)
 
@@ -341,6 +370,7 @@ def main():
         pred_out = args.prediction_output
         if not pred_out:
             pred_out = os.path.join(args.output, "test_predictions.conll")
+        # do the prediction
         predict_conll_file(
             test_file=args.test_file,
             output_file=pred_out,
