@@ -12,7 +12,8 @@ pip3 install \
     scikit-learn \
     matplotlib \
     seaborn \
-    tqdm 
+    tqdm \
+    xgboost
 
 
 

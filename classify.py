@@ -24,13 +24,19 @@ import argparse
 import pickle
 import joblib
 import numpy as np
+import xgboost as xgb
 from tqdm import tqdm
+from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import SGDClassifier
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.metrics import classification_report, accuracy_score, f1_score
 from sklearn.utils.class_weight import compute_class_weight
 from preprocess import extract_features, load_dictionaries
+
+
+label_encoder = LabelEncoder()
+
 
 # This function loads the CSV features and the feature definition .pkl file
 
@@ -184,7 +190,7 @@ def train_models(X_train: np.ndarray, y_train: np.ndarray, use_class_weights: bo
     else:
         class_weight_dict = None
 
-    # we define 2 models
+    # we define 3 models
     svm = SGDClassifier(
         loss='hinge',
         max_iter=5000,
@@ -195,13 +201,26 @@ def train_models(X_train: np.ndarray, y_train: np.ndarray, use_class_weights: bo
         class_weight=class_weight_dict
     )
     nb = MultinomialNB(alpha=0.1)
+    xgboost = xgb.XGBClassifier(
+        objective='multi:softmax',
+        num_class=len(unique_classes),
+        max_depth=6,
+        learning_rate=0.1,
+        n_estimators=100,
+        verbosity=1
+    )
+
     models = {
         "LinearSVM": svm,
-        "NaiveBayes": nb
+        "NaiveBayes": nb,
+        "XGBoost": xgboost
     }
 
     # training them
     for name, model in models.items():
+        if name == "XGBoost":
+            y_train = label_encoder.fit_transform(y_train)
+
         print(f"\nTraining {name}...")
         start_t = time.time()
         model.fit(X_train, y_train)
@@ -221,18 +240,38 @@ def evaluate_models(models: dict, X_val: np.ndarray, y_val: np.ndarray):
 
     results = {}
     for name, model in all_models.items():
-        print(f"\nEvaluating {name}...")
-        preds = model.predict(X_val)
-        acc = accuracy_score(y_val, preds)
-        w_f1 = f1_score(y_val, preds, average='weighted')
-        m_f1 = f1_score(y_val, preds, average='macro')
-        results[name] = {'accuracy': acc,
-                         'weighted_f1': w_f1, 'macro_f1': m_f1}
-        print(f"  - Accuracy: {acc:.4f}")
-        print(f"  - Weighted F1: {w_f1:.4f}")
-        print(f"  - Macro F1: {m_f1:.4f}")
-        print("  - Detailed classification report:")
-        print(classification_report(y_val, preds, zero_division=0))
+        if name == "XGBoost":
+            global label_encoder
+            y_val_encoded = label_encoder.transform(y_val)
+
+            print(f"\nEvaluating {name}...")
+            preds_encoded = model.predict(X_val)
+            preds = label_encoder.inverse_transform(preds_encoded)
+
+            acc = accuracy_score(y_val_encoded, preds_encoded)
+            w_f1 = f1_score(y_val_encoded, preds_encoded, average='weighted')
+            m_f1 = f1_score(y_val_encoded, preds_encoded, average='macro')
+
+            results[name] = {'accuracy': acc, 'weighted_f1': w_f1, 'macro_f1': m_f1}
+            print(f"  - Accuracy: {acc:.4f}")
+            print(f"  - Weighted F1: {w_f1:.4f}")
+            print(f"  - Macro F1: {m_f1:.4f}")
+            print("  - Detailed classification report:")
+            print(classification_report(y_val_encoded, preds_encoded, zero_division=0))
+
+        else:
+            print(f"\nEvaluating {name}...")
+            preds = model.predict(X_val)
+            acc = accuracy_score(y_val, preds)
+            w_f1 = f1_score(y_val, preds, average='weighted')
+            m_f1 = f1_score(y_val, preds, average='macro')
+            results[name] = {'accuracy': acc,
+                            'weighted_f1': w_f1, 'macro_f1': m_f1}
+            print(f"  - Accuracy: {acc:.4f}")
+            print(f"  - Weighted F1: {w_f1:.4f}")
+            print(f"  - Macro F1: {m_f1:.4f}")
+            print("  - Detailed classification report:")
+            print(classification_report(y_val, preds, zero_division=0))
 
     best_model_name = max(
         results.items(), key=lambda x: x[1]['weighted_f1'])[0]
@@ -379,6 +418,7 @@ def main():
         )
 
     print("\nProcess complete.")
+
 
 
 if __name__ == "__main__":
