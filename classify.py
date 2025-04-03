@@ -3,7 +3,7 @@
 Classification script for Spanish-English code-switching detection.
 
 Supports:
-  - Training multiple models (SGD + NB + XGBoost + Stacking). # Added Stacking
+  - Training multiple models (SGD + NB + XGBoost + Stacking).
   - Predicting an unlabeled .conll test set.
   - Saving and loading models from disk.
 
