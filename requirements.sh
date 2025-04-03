@@ -13,7 +13,8 @@ pip3 install \
     matplotlib \
     seaborn \
     tqdm \
-    xgboost
+    xgboost \
+    catboost
 
 
 
