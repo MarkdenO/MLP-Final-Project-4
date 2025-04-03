@@ -19,5 +19,5 @@ python3 classify.py --mode train --data processed_data --output models --class-w
 
 And generate a labeled test set using:
 ```
-python classify.py --mode predict --data processed_data --output models --test-file lid_spaeng/test.conll --prediction-output predictions.conll
+python3 classify.py --mode predict --data processed_data --output models --test-file lid_spaeng/test.conll --prediction-output predictions.conll
 ```
