@@ -25,6 +25,8 @@ import pickle
 import joblib
 import numpy as np
 import xgboost as xgb
+import seaborn as sns
+import matplotlib.pyplot as plt
 from tqdm import tqdm
 from catboost import CatBoostClassifier
 from sklearn.preprocessing import LabelEncoder
@@ -32,7 +34,7 @@ from sklearn.ensemble import StackingClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import SGDClassifier
 from sklearn.naive_bayes import MultinomialNB
-from sklearn.metrics import classification_report, accuracy_score, f1_score
+from sklearn.metrics import classification_report, accuracy_score, f1_score, confusion_matrix
 from sklearn.utils.class_weight import compute_class_weight
 from preprocess import extract_features, load_dictionaries
 
@@ -348,6 +350,7 @@ def evaluate_models(models: dict, X_train: np.ndarray, y_train_encoded: np.ndarr
         print("  - Classification Report (on original labels):")
         print(classification_report(y_true_eval, preds_eval, target_names=label_encoder.classes_, zero_division=0))
 
+
     # --- Train and Evaluate Stacking Classifier ---
     print("\n--- Training and Evaluating Stacking Classifier ---")
 
@@ -405,6 +408,20 @@ def evaluate_models(models: dict, X_train: np.ndarray, y_train_encoded: np.ndarr
     print("  - Classification Report (on original labels):")
     stacking_preds_orig = label_encoder.inverse_transform(stacking_preds_encoded)
     print(classification_report(y_val, stacking_preds_orig, target_names=label_encoder.classes_, zero_division=0))
+
+    # --- Confusion Matrix for meta-learner ---
+    # Commented out, but can be uncommented if needed
+
+    # cm = confusion_matrix(y_val, stacking_preds_orig, labels=label_encoder.classes_)
+    # plt.figure(figsize=(10, 8))
+    # sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=label_encoder.classes_, yticklabels=label_encoder.classes_)
+    # plt.title("Confusion Matrix for Stacking Classifier")
+    # plt.xlabel("Predicted Label")
+    # plt.ylabel("True Label")
+    # plt.tight_layout()
+    # plt.savefig("stacking_confusion_matrix.png")
+    # plt.show()
+    # print("Confusion matrix saved as 'stacking_confusion_matrix.png'.")
 
     # --- Determine Best Model ---
     models[stacking_model_name] = stacking_model 
@@ -638,6 +655,7 @@ def main():
 
         # save models
         save_models(all_trained_models, best_model_name, label_encoder, output_path=args.output)
+
 
     # prediction mode
     elif args.mode == 'predict':
