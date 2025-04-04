@@ -2,7 +2,7 @@
 
 
 # Installation
-In order to run the project, first make sure the required packages are installed using:
+In order to run the project, first make sure you are on python version 3.9 or newer, then install the required packages using:
 ```
 bash requirements.sh
 ```
